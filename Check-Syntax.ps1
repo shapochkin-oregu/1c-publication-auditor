@@ -63,13 +63,53 @@ function Write-TestAtomicJson([string]$Path, $Object) {
 
 $PathTestsOk = $true
 $PathTestsOk = (Test-PathRootRuntime 'C:\Windows' 'LOCAL_DRIVE') -and $PathTestsOk
-$PathTestsOk = (Test-PathRootRuntime 'D:\1c_web' 'LOCAL_DRIVE') -and $PathTestsOk
-$PathTestsOk = (Test-PathRootRuntime 'E:\1c_data\demo' 'LOCAL_DRIVE') -and $PathTestsOk
+$PathTestsOk = (Test-PathRootRuntime 'G:\1c_web' 'LOCAL_DRIVE') -and $PathTestsOk
+$PathTestsOk = (Test-PathRootRuntime 'V:\8.2\buh166' 'LOCAL_DRIVE') -and $PathTestsOk
 $PathTestsOk = (Test-PathRootRuntime '\\server\share\base' 'UNC') -and $PathTestsOk
 if (-not $PathTestsOk) { exit 2 }
 Write-Host 'RUNTIME PATH SELF-TEST PASSED' -ForegroundColor Green
 
-$TestDir = Join-Path ([System.IO.Path]::GetTempPath()) ('1c-auditor-v20-' + [Guid]::NewGuid().ToString('N'))
+function Get-CanonicalPathKeyForTest([string]$Value) {
+    if ([string]::IsNullOrWhiteSpace($Value)) { return $null }
+    $normalized = $Value.Replace('/', '\').Trim()
+    try { $normalized = [System.IO.Path]::GetFullPath($normalized) } catch {}
+    $root = $null
+    try { $root = [System.IO.Path]::GetPathRoot($normalized) } catch {}
+    if (-not [string]::IsNullOrWhiteSpace([string]$root) -and $normalized.Length -gt $root.Length) {
+        $normalized = $normalized.TrimEnd('\')
+    }
+    return $normalized.ToLowerInvariant()
+}
+
+function Test-PathInsideDirectoryRuntime([string]$Path, [string]$Directory, [bool]$Expected) {
+    try {
+        $pathKey = Get-CanonicalPathKeyForTest $Path
+        $dirKey = Get-CanonicalPathKeyForTest $Directory
+        $actual = $false
+        if (-not [string]::IsNullOrWhiteSpace($pathKey) -and -not [string]::IsNullOrWhiteSpace($dirKey)) {
+            $actual = ($pathKey -eq $dirKey) -or $pathKey.StartsWith(($dirKey + '\'), [System.StringComparison]::OrdinalIgnoreCase)
+        }
+        if ($actual -ne $Expected) { throw ("Expected {0}, got {1}" -f $Expected,$actual) }
+        Write-Host ("VRD PATH OK - {0} inside {1} = {2}" -f $Path,$Directory,$actual) -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host ("VRD PATH ERROR - {0} / {1}: {2}" -f $Path,$Directory,$_.Exception.Message) -ForegroundColor Red
+        return $false
+    }
+}
+
+$VrdPathTestsOk = $true
+$VrdPathTestsOk = (Test-PathInsideDirectoryRuntime 'G:\1c_web\buh\default.vrd' 'G:\1c_web\buh' $true) -and $VrdPathTestsOk
+$VrdPathTestsOk = (Test-PathInsideDirectoryRuntime 'G:\1c_web\buh\default.vrd' 'G:\1c_web\buh\' $true) -and $VrdPathTestsOk
+$VrdPathTestsOk = (Test-PathInsideDirectoryRuntime 'g:\1C_WEB\BUH\DEFAULT.VRD' 'G:\1c_web\buh' $true) -and $VrdPathTestsOk
+$VrdPathTestsOk = (Test-PathInsideDirectoryRuntime 'G:/1c_web/buh/default.vrd' 'G:\1c_web\buh' $true) -and $VrdPathTestsOk
+$VrdPathTestsOk = (Test-PathInsideDirectoryRuntime 'G:\1c_web\buh\sub\custom.vrd' 'G:\1c_web\buh' $true) -and $VrdPathTestsOk
+$VrdPathTestsOk = (Test-PathInsideDirectoryRuntime 'G:\1c_web\buh2\default.vrd' 'G:\1c_web\buh' $false) -and $VrdPathTestsOk
+$VrdPathTestsOk = (Test-PathInsideDirectoryRuntime 'G:\other\default.vrd' 'G:\1c_web\buh' $false) -and $VrdPathTestsOk
+if (-not $VrdPathTestsOk) { exit 4 }
+Write-Host 'VRD DIRECTORY SELF-TEST PASSED' -ForegroundColor Green
+
+$TestDir = Join-Path ([System.IO.Path]::GetTempPath()) ('1c-auditor-v18-' + [Guid]::NewGuid().ToString('N'))
 $TestFile = Join-Path $TestDir 'atomic.json'
 try {
     New-Item -ItemType Directory -Path $TestDir -Force | Out-Null
