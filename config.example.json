@@ -1,0 +1,14 @@
+{
+  "ApacheConfigPath": "C:\\Apache24\\conf\\httpd.conf",
+  "PublicationRoots": [
+    "D:\\1c_web",
+    "D:\\1c_web_local"
+  ],
+  "ListenPrefix": "http://localhost:8787/",
+  "ExpectedHtaccessRules": [
+    "Require ip 192.168",
+    "Require ip 127.0.0.1"
+  ],
+  "HistoryLimit": 50,
+  "PathTimeoutSeconds": 5
+}
