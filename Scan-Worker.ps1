@@ -345,7 +345,22 @@ function Make-Result($p,[bool]$dirExists,$dirProbe,$vrd,$ht,$db){
 
 function Get-NormalizedKey([string]$Value) {
     if ([string]::IsNullOrWhiteSpace($Value)) { return $null }
-    return $Value.Trim().TrimEnd('\\').ToLowerInvariant()
+    $normalized = (Normalize-PathString $Value)
+    try { $normalized = [System.IO.Path]::GetFullPath($normalized) } catch {}
+    $root = $null
+    try { $root = [System.IO.Path]::GetPathRoot($normalized) } catch {}
+    if (-not [string]::IsNullOrWhiteSpace([string]$root) -and $normalized.Length -gt $root.Length) {
+        $normalized = $normalized.TrimEnd('\')
+    }
+    return $normalized.ToLowerInvariant()
+}
+
+function Test-PathInsideDirectory([string]$Path, [string]$Directory) {
+    $pathKey = Get-NormalizedKey $Path
+    $dirKey = Get-NormalizedKey $Directory
+    if ([string]::IsNullOrWhiteSpace($pathKey) -or [string]::IsNullOrWhiteSpace($dirKey)) { return $false }
+    if ($pathKey -eq $dirKey) { return $true }
+    return $pathKey.StartsWith(($dirKey + '\'), [System.StringComparison]::OrdinalIgnoreCase)
 }
 
 function Get-DatabaseIdentity($Item) {
@@ -382,9 +397,7 @@ function Apply-DeepAudit($Items) {
             if (-not $item.audit.aliasDirectoryMatch) { Add-AuditIssue $item 'ALIAS_DIRECTORY_MISMATCH' $true }
         }
         if ($item.vrdPath -and $item.directory) {
-            $vrdKey = Get-NormalizedKey ([string]$item.vrdPath)
-            $prefix = $dirKey + '\\'
-            $item.audit.vrdInsideDirectory = ($vrdKey -eq ($dirKey + '\\default.vrd') -or $vrdKey.StartsWith($prefix))
+            $item.audit.vrdInsideDirectory = Test-PathInsideDirectory ([string]$item.vrdPath) ([string]$item.directory)
             if (-not $item.audit.vrdInsideDirectory) { Add-AuditIssue $item 'VRD_OUTSIDE_PUBLICATION_DIRECTORY' $false }
         }
         $item.audit.databaseIdentity = Get-DatabaseIdentity $item
