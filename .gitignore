@@ -1,0 +1,11 @@
+config.json
+data/*
+logs/*
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+!data/.gitkeep
+!logs/.gitkeep
